@@ -121,3 +121,22 @@ create new project
 deploy from github repo
 generate domain for backend service
 ```
+
+# create waffle resource
+
+```bash
+nest g resource
+```
+
+# get husky
+
+```bash
+npm install --save-dev husky
+```
+
+# update husky pre commit
+
+```
+npm run lint
+npm run format
+```
