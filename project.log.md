@@ -61,7 +61,7 @@ Prettier
 }
 ```
 
-# whenever you npm i, restart eslint, reload window
+# whenever you npm i, restart eslint, reload window / when u get eslint err try to reload it too
 
 ```
 ctrl shift p
@@ -134,9 +134,68 @@ nest g resource
 npm install --save-dev husky
 ```
 
-# update husky pre commit
+# update husky pre commit (.husky/pre-commit)
 
 ```
 npm run lint
 npm run format
+```
+
+# bind global pipe in entry file to validate dto and transform
+
+```javascript
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  await app.listen(process.env.PORT ?? 3000);
+}
+void bootstrap();
+```
+
+# get class validator deps to decor dto
+
+```bash
+npm i class-validator class-transformer
+```
+
+# update dto
+
+```javascript
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  Min,
+  MaxLength,
+} from 'class-validator';
+
+export class CreateWaffleDto {
+  @IsString()
+  @MaxLength(50)
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  description?: string;
+
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isGlutenFree?: boolean;
+}
 ```
