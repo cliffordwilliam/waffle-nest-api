@@ -49,6 +49,18 @@ ESLint
 Prettier
 ```
 
+# update vs code settings to format and lint on save
+
+```json
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
+}
+```
+
 # whenever you npm i, restart eslint, reload window
 
 ```
@@ -65,9 +77,47 @@ ctrl shift p
 select typeScript version
 ```
 
-# before commit run lint and format
+# before commit run lint and format all
 
 ```bash
 npm run lint
 npm run format
+```
+
+# watch mode
+
+```bash
+npm run start:dev
+```
+
+# add rate limiter
+
+```bash
+npm i --save @nestjs/throttler
+```
+
+# init the rate limiter module
+
+```javascript
+@Module({
+  imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
+  ],
+})
+export class AppModule {}
+```
+
+# deploy to railway
+
+```
+pay for hobby plan
+go to railway dashboard
+create new project
+deploy from github repo
+generate domain for backend service
 ```
