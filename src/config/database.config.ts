@@ -1,22 +1,22 @@
+import { config } from 'dotenv';
 import { registerAs } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+config(); // outside nest need to explicit call to parse env to process
 
-export function getDatabaseConfig() {
-  return {
-    type: process.env.DATABASE_TYPE || 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT) || 5432,
-    username: process.env.DATABASE_USER || 'root',
-    password: process.env.DATABASE_PASSWORD || '',
-    database: process.env.DATABASE_NAME || 'test',
-  };
-}
+export const databaseConfig = {
+  type: process.env.DATABASE_TYPE || 'postgres',
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: Number(process.env.DATABASE_PORT) || 5432,
+  username: process.env.DATABASE_USER || 'root',
+  password: process.env.DATABASE_PASSWORD || '',
+  database: process.env.DATABASE_NAME || 'test',
+};
 
 export default registerAs(
   'database',
   () =>
     ({
-      ...getDatabaseConfig(),
+      ...databaseConfig,
       autoLoadEntities: true,
     }) as TypeOrmModuleOptions,
 );

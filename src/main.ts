@@ -1,12 +1,7 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { config } from 'dotenv';
-import { Waffle } from './waffles/entities/waffle.entity';
-import { CreateWaffleTable1738959238260 } from './migrations/1738959238260-CreateWaffleTable';
-
-config(); // Load environment variables
+import { NestFactory } from '@nestjs/core';
+import dataSource from '../typeorm-cli.config';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   // Create NestJS app
@@ -20,20 +15,6 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
-  // Initialize TypeORM DataSource for migrations
-  const dataSource = new DataSource({
-    type: process.env.DATABASE_TYPE || 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT) || 5432,
-    username: process.env.DATABASE_USER || 'root',
-    password: process.env.DATABASE_PASSWORD || '',
-    database: process.env.DATABASE_NAME || 'test',
-    entities: [Waffle],
-    migrations: [CreateWaffleTable1738959238260],
-    logging: true, // Enable logging
-    logger: 'advanced-console', // Advanced console logger (logs to console)
-  } as DataSourceOptions);
 
   // Run migrations before starting the app
   try {

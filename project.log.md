@@ -455,25 +455,25 @@ then connect to a source repo on github, on push this will redeploy
 # make db config repeated stuff reusable
 
 ```javascript
+import { config } from 'dotenv';
 import { registerAs } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+config(); // outside nest need to explicit call to parse env to process
 
-export function getDatabaseConfig() {
-  return {
-    type: process.env.DATABASE_TYPE || 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT) || 5432,
-    username: process.env.DATABASE_USER || 'root',
-    password: process.env.DATABASE_PASSWORD || '',
-    database: process.env.DATABASE_NAME || 'test',
-  };
-}
+export const databaseConfig = {
+  type: process.env.DATABASE_TYPE || 'postgres',
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: Number(process.env.DATABASE_PORT) || 5432,
+  username: process.env.DATABASE_USER || 'root',
+  password: process.env.DATABASE_PASSWORD || '',
+  database: process.env.DATABASE_NAME || 'test',
+};
 
 export default registerAs(
   'database',
   () =>
     ({
-      ...getDatabaseConfig(),
+      ...databaseConfig,
       autoLoadEntities: true,
     }) as TypeOrmModuleOptions,
 );
@@ -482,15 +482,17 @@ export default registerAs(
 # use that getter to config the typeorm cli migration
 
 ```javascript
-import { config } from 'dotenv';
-import { getDatabaseConfig } from 'src/config/database.config';
+import { databaseConfig } from 'src/config/database.config';
+import { CreateWaffleTable1738959238260 } from 'src/migrations/1738959238260-CreateWaffleTable';
+import { Waffle } from 'src/waffles/entities/waffle.entity';
 import { DataSource, DataSourceOptions } from 'typeorm';
-config(); // outside nest need to explicit call to parse env to process
 
 export default new DataSource({
-  ...getDatabaseConfig(),
-  entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
-  migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
+  ...databaseConfig,
+  entities: [Waffle],
+  migrations: [CreateWaffleTable1738959238260],
+  logging: true, // Enable logging
+  logger: 'advanced-console', // Advanced console logger (logs to console)
 } as DataSourceOptions);
 ```
 
@@ -523,12 +525,12 @@ export class Waffle {
 ```bash
 # build first, so it can compare local vs db
 npm run build
-npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-cli.config
+npx typeorm migration:generate src/migrations/AddStockQuantityColumn -d dist/typeorm-cli.config
 
 # open and save that file so it lint and format, when you commit sometimes it does not do it so just do it manually
 ```
 
-# run or revert migration file
+# run new migration files
 
 ```bash
 # build first, so it can run new ones (so in prod, no need to build just run the migration)
@@ -539,13 +541,10 @@ npx typeorm migration:run -d dist/typeorm-cli.config
 # on app start, always run all migrations
 
 ```javascript
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { config } from 'dotenv';
-
-config(); // Load environment variables
+import { NestFactory } from '@nestjs/core';
+import dataSource from '../typeorm-cli.config';
+import { AppModule } from './app.module';
 
 async function bootstrap() {
   // Create NestJS app
@@ -559,20 +558,6 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
-  // Initialize TypeORM DataSource for migrations
-  const dataSource = new DataSource({
-    type: process.env.DATABASE_TYPE || 'postgres',
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: Number(process.env.DATABASE_PORT) || 5432,
-    username: process.env.DATABASE_USER || 'root',
-    password: process.env.DATABASE_PASSWORD || '',
-    database: process.env.DATABASE_NAME || 'test',
-    entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
-    migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
-    logging: true, // Enable logging
-    logger: 'advanced-console', // Advanced console logger (logs to console)
-  } as DataSourceOptions);
 
   // Run migrations before starting the app
   try {

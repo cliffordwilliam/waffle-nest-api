@@ -16,4 +16,7 @@ export class Waffle {
 
   @Column({ type: 'boolean', default: false })
   isGlutenFree?: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  stockQuantity: number;
 }
