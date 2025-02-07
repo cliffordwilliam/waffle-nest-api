@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { config } from 'dotenv';
+import { Waffle } from './waffles/entities/waffle.entity';
+import { CreateWaffleTable1738959238260 } from './migrations/1738959238260-CreateWaffleTable';
 
 config(); // Load environment variables
 
@@ -27,8 +29,8 @@ async function bootstrap() {
     username: process.env.DATABASE_USER || 'root',
     password: process.env.DATABASE_PASSWORD || '',
     database: process.env.DATABASE_NAME || 'test',
-    entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
-    migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
+    entities: [Waffle],
+    migrations: [CreateWaffleTable1738959238260],
     logging: true, // Enable logging
     logger: 'advanced-console', // Advanced console logger (logs to console)
   } as DataSourceOptions);
