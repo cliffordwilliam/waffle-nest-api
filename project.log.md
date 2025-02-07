@@ -392,8 +392,147 @@ see if typeorm deps initialized = that means connection to local db is ok
   }
 ```
 
-# try to deploy this to railway via cli
+# login to railway
 
 ```bash
 npm i -g @railway/cli
+railway login
+```
+
+# prepare env for railway
+
+```
+NODE_ENV=asd
+
+DATABASE_TYPE=postgres
+DATABASE_USER=${{Postgres.PGUSER}}
+DATABASE_PASSWORD=${{Postgres.PGPASSWORD}}
+DATABASE_NAME=${{Postgres.PGDATABASE}}
+DATABASE_PORT=5432
+DATABASE_HOST=${{Postgres.PGHOST}}
+
+JWT_SECRET=use this in bash "$ openssl rand -base64 32"
+JWT_TOKEN_AUDIENCE=asd
+JWT_TOKEN_ISSUER=asd
+
+REDIS_HOST=asd
+REDIS_PORT=asd
+REDIS_PASSWORD=asd
+
+BCRYPT_SALT=asd
+
+CLOUDINARY_API_SECRET=asd
+CLOUDINARY_API_KEY=asd
+CLOUDINARY_CLOUD_NAME=asd
+
+FRONTEND_URL=asd
+
+STRIPE_SECRET=asd
+```
+
+# init railway in proj root, add postgres service, add web server service
+
+pick Empty Service for this web server service, name is repo name
+
+Enter a variable one by one, e.g. DB_DATABASE=${{Postgres.PGDATABASE}}
+
+press enter to stop
+
+railway up to deploy
+
+this is private connection between web server and postgres
+
+```bash
+railway init
+railway add -d postgres
+railway add
+railway up
+railway logout
+```
+
+then connect to a source repo on github, on push this will redeploy
+
+# make db config repeated stuff reusable
+
+```javascript
+import { registerAs } from '@nestjs/config';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
+export function getDatabaseConfig() {
+  return {
+    type: process.env.DATABASE_TYPE || 'postgres',
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: Number(process.env.DATABASE_PORT) || 5432,
+    username: process.env.DATABASE_USER || 'root',
+    password: process.env.DATABASE_PASSWORD || '',
+    database: process.env.DATABASE_NAME || 'test',
+  };
+}
+
+export default registerAs(
+  'database',
+  () =>
+    ({
+      ...getDatabaseConfig(),
+      autoLoadEntities: true,
+    }) as TypeOrmModuleOptions,
+);
+```
+
+# use that getter to config the typeorm cli migration
+
+```javascript
+import { config } from 'dotenv';
+import { getDatabaseConfig } from 'src/config/database.config';
+import { DataSource, DataSourceOptions } from 'typeorm';
+config(); // outside nest need to explicit call to parse env to process
+
+export default new DataSource({
+  ...getDatabaseConfig(),
+  entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
+  migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
+} as DataSourceOptions);
+```
+
+# edit local entity
+
+```javascript
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
+@Entity()
+export class Waffle {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'varchar', length: 50 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  description?: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  price: number;
+
+  @Column({ type: 'boolean', default: false })
+  isGlutenFree?: boolean;
+}
+```
+
+# local entity vs db, got diff? makes one migration file
+
+```bash
+npm run build
+npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-cli.config
+```
+
+# run or revert migration file
+
+```bash
+# run new ones
+npm run build
+npx typeorm migration:run -d dist/typeorm-cli.config
+
+# undo latest one
+npm run build
+npx typeorm migration:revert -d dist/typeorm-cli.config
 ```
