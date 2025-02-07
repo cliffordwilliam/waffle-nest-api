@@ -383,3 +383,17 @@ import databaseConfig from './config/database.config';
 run watch mode
 see if typeorm deps initialized = that means connection to local db is ok
 ```
+
+# add node version explicit in package.json
+
+```json
+  "engines": {
+    "node": ">=22.0.0"
+  }
+```
+
+# try to deploy this to railway via cli
+
+```bash
+npm i -g @railway/cli
+```
