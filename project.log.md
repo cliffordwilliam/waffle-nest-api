@@ -524,6 +524,8 @@ export class Waffle {
 # build first, so it can compare local vs db
 npm run build
 npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-cli.config
+
+# open and save that file so it lint and format, when you commit sometimes it does not do it so just do it manually
 ```
 
 # run or revert migration file
@@ -532,18 +534,61 @@ npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-
 # build first, so it can run new ones (so in prod, no need to build just run the migration)
 npm run build
 npx typeorm migration:run -d dist/typeorm-cli.config
-
-# undo latest one
-npm run build
-npx typeorm migration:revert -d dist/typeorm-cli.config
-
-# drop all tables
-npx typeorm schema:drop -d dist/typeorm-cli.config
 ```
 
-# run migration in hosted railway (with railway cli to interact with rented comp)
+# on app start, always run all migrations
 
-```bash
-npm i -g @railway/cli
-railway login
+```javascript
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { config } from 'dotenv';
+
+config(); // Load environment variables
+
+async function bootstrap() {
+  // Create NestJS app
+  const app = await NestFactory.create(AppModule);
+
+  // Initialize Validation Pipe for DTO validation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  // Initialize TypeORM DataSource for migrations
+  const dataSource = new DataSource({
+    type: process.env.DATABASE_TYPE || 'postgres',
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: Number(process.env.DATABASE_PORT) || 5432,
+    username: process.env.DATABASE_USER || 'root',
+    password: process.env.DATABASE_PASSWORD || '',
+    database: process.env.DATABASE_NAME || 'test',
+    entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
+    migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
+    logging: true, // Enable logging
+    logger: 'advanced-console', // Advanced console logger (logs to console)
+  } as DataSourceOptions);
+
+  // Run migrations before starting the app
+  try {
+    await dataSource.initialize();
+    console.log('Database connected! Running migrations...');
+    await dataSource.runMigrations();
+    console.log('Migrations complete!');
+    await dataSource.destroy();
+  } catch (error) {
+    console.error('Error running migrations:', error);
+    process.exit(1); // Exit if migrations fail
+  }
+
+  // Start the NestJS app
+  await app.listen(process.env.PORT ?? 3000);
+}
+
+void bootstrap();
 ```
