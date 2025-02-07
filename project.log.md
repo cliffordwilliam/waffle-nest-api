@@ -521,6 +521,7 @@ export class Waffle {
 # local entity vs db, got diff? makes one migration file
 
 ```bash
+# build first, so it can compare local vs db
 npm run build
 npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-cli.config
 ```
@@ -528,11 +529,21 @@ npx typeorm migration:generate src/migrations/YourMigrationName -d dist/typeorm-
 # run or revert migration file
 
 ```bash
-# run new ones
+# build first, so it can run new ones (so in prod, no need to build just run the migration)
 npm run build
 npx typeorm migration:run -d dist/typeorm-cli.config
 
 # undo latest one
 npm run build
 npx typeorm migration:revert -d dist/typeorm-cli.config
+
+# drop all tables
+npx typeorm schema:drop -d dist/typeorm-cli.config
+```
+
+# run migration in hosted railway (with railway cli to interact with rented comp)
+
+```bash
+npm i -g @railway/cli
+railway login
 ```
