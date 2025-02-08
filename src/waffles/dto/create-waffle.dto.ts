@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
   IsNumber,
@@ -8,6 +9,7 @@ import {
 } from 'class-validator';
 
 export class CreateWaffleDto {
+  @ApiProperty({ description: 'The name of a waffle.' })
   @IsString()
   @MaxLength(50)
   readonly name: string;

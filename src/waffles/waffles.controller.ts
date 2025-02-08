@@ -12,7 +12,9 @@ import { WafflesService } from './waffles.service';
 import { CreateWaffleDto } from './dto/create-waffle.dto';
 import { UpdateWaffleDto } from './dto/update-waffle.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ApiNotFoundResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('waffles')
 @Controller('waffles')
 export class WafflesController {
   constructor(private readonly wafflesService: WafflesService) {}
@@ -27,6 +29,7 @@ export class WafflesController {
     return this.wafflesService.findAll(paginationQuery);
   }
 
+  @ApiNotFoundResponse({ description: 'Not found.' })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.wafflesService.findOne(id);

@@ -896,3 +896,220 @@ export class WafflesService {
   }
 }
 ```
+
+# get express swag dep, auto doc rest api maker
+
+```bash
+npm install --save @nestjs/swagger swagger-ui-express
+```
+
+# create doc in entry
+
+```javascript
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+
+async function bootstrap() {
+  // Create NestJS app
+  const app = await NestFactory.create(AppModule);
+
+  // Initialize Validation Pipe for DTO validation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  // swagger api doc
+  const options = new DocumentBuilder()
+    .setTitle('waffle-nest-api')
+    .setDescription(
+      'A NestJS-powered back-end with authentication, PostgreSQL, TypeORM, and Redis. Built to showcase scalable API design and back-end architecture.',
+    )
+    .setVersion('1.0')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, options);
+  SwaggerModule.setup('swag', app, document); // open browser thisAppDomain/api e.g. localhost:3000/api
+
+  // Start the NestJS app
+  await app.listen(process.env.PORT ?? 3000);
+}
+
+void bootstrap();
+```
+
+# update nest cli config to get swagger plugin - enhance ts compiler auto swag decor for u under hood
+
+```json
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "plugins": ["@nestjs/swagger/plugin"]
+  }
+}
+```
+
+# restart http listener and check doc in localhost:3000/api
+
+# update patch dto, use swagger partial type instead
+
+```javascript
+import { PartialType } from '@nestjs/swagger';
+import { CreateWaffleDto } from './create-waffle.dto';
+
+export class UpdateWaffleDto extends PartialType(CreateWaffleDto) {}
+```
+
+# decor source code to add more info for swagger if u want
+
+```javascript
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  Min,
+  MaxLength,
+} from 'class-validator';
+
+export class CreateWaffleDto {
+  @ApiProperty({ description: 'The name of a waffle.' }) // this overrides the default, you can do this if you want
+  @IsString()
+  @MaxLength(50)
+  readonly name: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  readonly description?: string;
+
+  @IsNumber()
+  @Min(0)
+  readonly price: number;
+
+  @IsBoolean()
+  @IsOptional()
+  readonly isGlutenFree?: boolean;
+
+  @IsNumber()
+  @Min(0)
+  readonly stockQuantity: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  readonly flavor?: string;
+}
+```
+
+# can add example err res like this too
+
+```javascript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
+import { WafflesService } from './waffles.service';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ApiNotFoundResponse } from '@nestjs/swagger';
+
+@Controller('waffles')
+export class WafflesController {
+  constructor(private readonly wafflesService: WafflesService) {}
+
+  @Post()
+  create(@Body() createWaffleDto: CreateWaffleDto) {
+    return this.wafflesService.create(createWaffleDto);
+  }
+
+  @Get()
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.wafflesService.findAll(paginationQuery);
+  }
+
+  @ApiNotFoundResponse({ description: 'Not found.' }) // err res e.g. for swag to render
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.wafflesService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateWaffleDto: UpdateWaffleDto) {
+    return this.wafflesService.update(id, updateWaffleDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.wafflesService.remove(id);
+  }
+}
+```
+
+# u can add tags too
+
+```javascript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
+import { WafflesService } from './waffles.service';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ApiNotFoundResponse, ApiTags } from '@nestjs/swagger';
+
+@ApiTags('waffles') // to collect them under same heading in swag render
+@Controller('waffles')
+export class WafflesController {
+  constructor(private readonly wafflesService: WafflesService) {}
+
+  @Post()
+  create(@Body() createWaffleDto: CreateWaffleDto) {
+    return this.wafflesService.create(createWaffleDto);
+  }
+
+  @Get()
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.wafflesService.findAll(paginationQuery);
+  }
+
+  @ApiNotFoundResponse({ description: 'Not found.' })
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.wafflesService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateWaffleDto: UpdateWaffleDto) {
+    return this.wafflesService.update(id, updateWaffleDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.wafflesService.remove(id);
+  }
+}
+```
