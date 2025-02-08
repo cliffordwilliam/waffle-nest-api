@@ -24,6 +24,7 @@ export class RefreshTokenIdsStorage
     this.redisClient = new Redis({
       host: this.redisConfiguration.host,
       port: this.redisConfiguration.port,
+      password: this.redisConfiguration.password,
     });
   }
 
