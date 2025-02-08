@@ -1,14 +1,15 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddCreatedAtToWaffle1738998548698 implements MigrationInterface {
-    name = 'AddCreatedAtToWaffle1738998548698'
+  name = 'AddCreatedAtToWaffle1738998548698';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "waffle" ADD "createdAt" TIMESTAMP NOT NULL DEFAULT now()`);
-    }
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE "waffle" ADD "createdAt" TIMESTAMP NOT NULL DEFAULT now()`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "waffle" DROP COLUMN "createdAt"`);
-    }
-
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`ALTER TABLE "waffle" DROP COLUMN "createdAt"`);
+  }
 }

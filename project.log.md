@@ -83,11 +83,30 @@ select typeScript version
 npm install --save-dev husky
 ```
 
-# update husky pre commit (.husky/pre-commit) run lint and format all
+# add lint stages
+
+Run tasks like formatters and linters against staged git files and don't let 💩 slip into your code base!
+
+```bash
+npm install --save-dev lint-staged
+```
+
+# add lint staged to package.json
+
+```json
+,
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "npm run lint",
+      "npm run format"
+    ]
+  }
+```
+
+# husky uses lint staged (root/.husky/pre-commit)
 
 ```
-npm run lint
-npm run format
+npx lint-staged
 ```
 
 # watch mode
