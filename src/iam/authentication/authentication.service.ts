@@ -18,6 +18,7 @@ import { RefreshTokenData } from '../interfaces/refresh-token-data.interface';
 import { JWT_ACCESS_TOKEN_TTL, JWT_REFRESH_TOKEN_TTL } from '../iam.constants';
 import { randomUUID } from 'crypto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RefreshTokenIdsStorage } from './refresh-token-ids.storage';
 
 @Injectable()
 export class AuthenticationService {
@@ -27,6 +28,7 @@ export class AuthenticationService {
     private readonly jwtService: JwtService,
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+    private readonly refreshTokenIdsStorage: RefreshTokenIdsStorage,
   ) {}
 
   async signUp(signUpDto: SignUpDto) {
@@ -79,6 +81,7 @@ export class AuthenticationService {
         JWT_REFRESH_TOKEN_TTL,
       ),
     ]);
+    await this.refreshTokenIdsStorage.insert(user.id, refreshTokenId); // remember tiket given out
     return {
       accessToken,
       refreshToken,
@@ -100,13 +103,24 @@ export class AuthenticationService {
 
   async refreshTokens(refreshTokenDto: RefreshTokenDto) {
     try {
-      const { sub }: RefreshTokenData = await this.jwtService.verifyAsync(
-        refreshTokenDto.refreshToken,
-        this.jwtConfiguration,
-      );
+      const { sub, refreshTokenId }: RefreshTokenData =
+        await this.jwtService.verifyAsync(
+          refreshTokenDto.refreshToken,
+          this.jwtConfiguration,
+        );
       const user = await this.usersRepository.findOneByOrFail({
         id: sub,
       });
+      // check if user holds tiket that i just gave them
+      const isValid = await this.refreshTokenIdsStorage.validate(
+        user.id,
+        refreshTokenId,
+      );
+      if (isValid) {
+        await this.refreshTokenIdsStorage.invalidate(user.id); // burn old tiket
+      } else {
+        throw new Error('Refresh token is invalid'); // ur tiket is fake
+      }
       return this.generateTokens(user);
     } catch {
       // fail to read token or user don't exist in token
