@@ -1394,13 +1394,10 @@ export default registerAs('jwt', () => {
     throw new Error('JWT_TOKEN_ISSUER environment variable is missing');
   }
 
-  const accessTokenTtl = Number(process.env.JWT_ACCESS_TOKEN_TTL) || 3600; // Default to 3600 seconds (1 hour)
-
   return {
     secret,
     audience,
     issuer,
-    accessTokenTtl,
   };
 });
 ```
@@ -1428,6 +1425,14 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [AuthenticationController],
 })
 export class IamModule {}
+```
+
+# make const for token ttl
+
+```javascript
+export const REQUEST_USER_KEY = 'user';
+export const JWT_ACCESS_TOKEN_TTL = 300;
+export const JWT_REFRESH_TOKEN_TTL = 3600;
 ```
 
 # give token on ok sign in
@@ -1496,7 +1501,7 @@ export class AuthenticationService {
         audience: this.jwtConfiguration.audience,
         issuer: this.jwtConfiguration.issuer,
         secret: this.jwtConfiguration.secret,
-        expiresIn: this.jwtConfiguration.accessTokenTtl,
+        expiresIn: JWT_ACCESS_TOKEN_TTL,
       },
     );
     return {
@@ -1571,20 +1576,9 @@ export class AccessTokenGuard implements CanActivate {
     return true;
   }
 
-  private extractTokenFromHeader(request: Request): string | null {
-    const authHeader = request.headers['authorization'];
-
-    if (!authHeader) {
-      return null;
-    }
-
-    const [scheme, token] = authHeader.split(' ');
-
-    if (scheme !== 'Bearer' || !token) {
-      return null;
-    }
-
-    return token;
+  private extractTokenFromHeader(request: Request): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
   }
 }
 ```
@@ -1718,6 +1712,236 @@ export class AuthenticationController {
   @Post('sign-in')
   signIn(@Body() signInDto: SignInDto) {
     return this.authService.signIn(signInDto);
+  }
+}
+
+```
+
+# add decor to grab active user payload from request
+
+```javascript
+// src/iam/decorators/active-user.decorator.ts
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { REQUEST_USER_KEY } from '../iam.constants';
+import { ActiveUserData } from '../interfaces/active-user-data.interface';
+import { Request } from 'express';
+
+export const ActiveUser = createParamDecorator(
+  (field: keyof ActiveUserData | undefined, ctx: ExecutionContext) => {
+    const request: Request = ctx.switchToHttp().getRequest();
+    const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
+    return field ? user?.[field] : user;
+  },
+);
+
+```
+
+# use it to get me
+
+```javascript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
+import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ActiveUser } from 'src/iam/decorators/active-user.decorator';
+import { ActiveUserData } from 'src/iam/interfaces/active-user-data.interface';
+
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto);
+  }
+
+  @Get()
+  findAll() {
+    return this.usersService.findAll();
+  }
+
+  @Get('me')
+  findMe(@ActiveUser() user: ActiveUserData) {
+    return this.usersService.findOne(user.sub);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(+id, updateUserDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.usersService.remove(+id);
+  }
+}
+```
+
+# update auth service, give refresh token with access token
+
+```javascript
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { HashingService } from '../hashing/hashing.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignUpDto } from './dto/sign-up.dto';
+import { JwtService } from '@nestjs/jwt';
+import jwtConfig from '../config/jwt.config';
+import { ConfigType } from '@nestjs/config';
+import { ActiveUserData } from '../interfaces/active-user-data.interface';
+import { RefreshTokenData } from '../interfaces/refresh-token-data.interface';
+import { JWT_ACCESS_TOKEN_TTL, JWT_REFRESH_TOKEN_TTL } from '../iam.constants';
+import { randomUUID } from 'crypto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+
+@Injectable()
+export class AuthenticationService {
+  constructor(
+    @InjectRepository(User) private readonly usersRepository: Repository<User>,
+    private readonly hashingService: HashingService,
+    private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+  ) {}
+
+  async signUp(signUpDto: SignUpDto) {
+    const existingUser = await this.usersRepository.findOneBy({
+      email: signUpDto.email,
+    });
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+    const user = new User();
+    user.email = signUpDto.email;
+    user.password = await this.hashingService.hash(signUpDto.password);
+
+    await this.usersRepository.save(user);
+  }
+
+  async signIn(signInDto: SignInDto) {
+    const user = await this.usersRepository.findOneBy({
+      email: signInDto.email,
+    });
+    if (!user) {
+      throw new UnauthorizedException('User does not exists');
+    }
+    const isEqual = await this.hashingService.compare(
+      signInDto.password,
+      user.password,
+    );
+    if (!isEqual) {
+      throw new UnauthorizedException('Password does not match');
+    }
+    return await this.generateTokens(user);
+  }
+
+  private async generateTokens(user: User) {
+    // all token needs user sub at least
+    const refreshTokenId = randomUUID();
+    const [accessToken, refreshToken] = await Promise.all([
+      this.signToken(
+        {
+          sub: user.id,
+          email: user.email,
+        } as ActiveUserData,
+        JWT_ACCESS_TOKEN_TTL,
+      ),
+      this.signToken(
+        {
+          sub: user.id,
+          refreshTokenId,
+        } as RefreshTokenData,
+        JWT_REFRESH_TOKEN_TTL,
+      ),
+    ]);
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  private async signToken<T>(payload: T, expiresIn: number) {
+    const token = await this.jwtService.signAsync(
+      payload as ActiveUserData | RefreshTokenData,
+      {
+        audience: this.jwtConfiguration.audience,
+        issuer: this.jwtConfiguration.issuer,
+        secret: this.jwtConfiguration.secret,
+        expiresIn, // access token or refresh token
+      },
+    );
+    return token;
+  }
+
+  async refreshTokens(refreshTokenDto: RefreshTokenDto) {
+    try {
+      const { sub }: RefreshTokenData = await this.jwtService.verifyAsync(
+        refreshTokenDto.refreshToken,
+        this.jwtConfiguration,
+      );
+      const user = await this.usersRepository.findOneByOrFail({
+        id: sub,
+      });
+      return this.generateTokens(user);
+    } catch {
+      // fail to read token or user don't exist in token
+      throw new UnauthorizedException();
+    }
+  }
+}
+
+```
+
+# create refresh token endpoint
+
+```javascript
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { AuthenticationService } from './authentication.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignUpDto } from './dto/sign-up.dto';
+import { Public } from './decorators/auth.decorator';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+
+@Public()
+@Controller('authentication')
+export class AuthenticationController {
+  constructor(private readonly authService: AuthenticationService) {}
+
+  @Post('sign-up')
+  signUp(@Body() signUpDto: SignUpDto) {
+    return this.authService.signUp(signUpDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('sign-in')
+  signIn(@Body() signInDto: SignInDto) {
+    return this.authService.signIn(signInDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('refresh-tokens')
+  refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto);
   }
 }
 

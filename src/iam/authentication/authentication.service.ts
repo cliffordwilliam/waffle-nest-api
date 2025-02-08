@@ -13,6 +13,11 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { JwtService } from '@nestjs/jwt';
 import jwtConfig from '../config/jwt.config';
 import { ConfigType } from '@nestjs/config';
+import { ActiveUserData } from '../interfaces/active-user-data.interface';
+import { RefreshTokenData } from '../interfaces/refresh-token-data.interface';
+import { JWT_ACCESS_TOKEN_TTL, JWT_REFRESH_TOKEN_TTL } from '../iam.constants';
+import { randomUUID } from 'crypto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Injectable()
 export class AuthenticationService {
@@ -52,20 +57,60 @@ export class AuthenticationService {
     if (!isEqual) {
       throw new UnauthorizedException('Password does not match');
     }
-    const accessToken = await this.jwtService.signAsync(
-      {
-        sub: user.id,
-        email: user.email,
-      },
+    return await this.generateTokens(user);
+  }
+
+  private async generateTokens(user: User) {
+    // all token needs user sub at least
+    const refreshTokenId = randomUUID();
+    const [accessToken, refreshToken] = await Promise.all([
+      this.signToken(
+        {
+          sub: user.id,
+          email: user.email,
+        } as ActiveUserData,
+        JWT_ACCESS_TOKEN_TTL,
+      ),
+      this.signToken(
+        {
+          sub: user.id,
+          refreshTokenId,
+        } as RefreshTokenData,
+        JWT_REFRESH_TOKEN_TTL,
+      ),
+    ]);
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  private async signToken<T>(payload: T, expiresIn: number) {
+    const token = await this.jwtService.signAsync(
+      payload as ActiveUserData | RefreshTokenData,
       {
         audience: this.jwtConfiguration.audience,
         issuer: this.jwtConfiguration.issuer,
         secret: this.jwtConfiguration.secret,
-        expiresIn: this.jwtConfiguration.accessTokenTtl,
+        expiresIn, // access token or refresh token
       },
     );
-    return {
-      accessToken,
-    };
+    return token;
+  }
+
+  async refreshTokens(refreshTokenDto: RefreshTokenDto) {
+    try {
+      const { sub }: RefreshTokenData = await this.jwtService.verifyAsync(
+        refreshTokenDto.refreshToken,
+        this.jwtConfiguration,
+      );
+      const user = await this.usersRepository.findOneByOrFail({
+        id: sub,
+      });
+      return this.generateTokens(user);
+    } catch {
+      // fail to read token or user don't exist in token
+      throw new UnauthorizedException();
+    }
   }
 }

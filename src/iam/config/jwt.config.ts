@@ -17,12 +17,9 @@ export default registerAs('jwt', () => {
     throw new Error('JWT_TOKEN_ISSUER environment variable is missing');
   }
 
-  const accessTokenTtl = Number(process.env.JWT_ACCESS_TOKEN_TTL) || 3600; // Default to 3600 seconds (1 hour)
-
   return {
     secret,
     audience,
     issuer,
-    accessTokenTtl,
   };
 });

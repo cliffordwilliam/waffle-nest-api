@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import jwtConfig from 'src/iam/config/jwt.config';
-import { IS_PUBLIC_KEY } from 'src/iam/decorators/auth.decorator';
+import { IS_PUBLIC_KEY } from 'src/iam/authentication/decorators/auth.decorator';
 import { REQUEST_USER_KEY } from 'src/iam/iam.constants';
 import { ActiveUserData } from 'src/iam/interfaces/active-user-data.interface';
 
