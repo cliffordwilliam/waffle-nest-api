@@ -9,6 +9,7 @@ import databaseConfig from './config/database.config';
 import { envValidationSchema } from './config/env.validation';
 import { WafflesModule } from './waffles/waffles.module';
 import { UsersModule } from './users/users.module';
+import { IamModule } from './iam/iam.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module';
     // All app sub modules
     WafflesModule,
     UsersModule,
+    IamModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1193,3 +1193,167 @@ git add .
 git commit -m "feat: add user"
 git push
 ```
+
+# get bcrypt js
+
+```bash
+npm i bcryptjs
+npm install --save @types/bcryptjs -D
+```
+
+# make iam mod
+
+```bash
+nest g module iam
+nest g service iam/hashing
+```
+
+# make hash serv
+
+```javascript
+import { Injectable } from '@nestjs/common';
+import { genSalt, hash, compare } from 'bcryptjs';
+
+@Injectable()
+export class HashingService {
+  async hash(data: string): Promise<string> {
+    const salt = await genSalt();
+    return hash(data, salt);
+  }
+
+  compare(data: string, encrypted: string): Promise<boolean> {
+    return compare(data, encrypted);
+  }
+}
+```
+
+# make auth cont serv for iam domain
+
+```bash
+nest g controller iam/authentication
+nest g service iam/authentication
+```
+
+# make sign in and up dto
+
+```bash
+nest g class iam/authentication/dto/sign-in.dto --flat
+nest g class iam/authentication/dto/sign-up.dto --flat
+```
+
+```javascript
+import { IsEmail, MinLength } from 'class-validator';
+
+export class SignUpDto {
+  @IsEmail()
+  email: string;
+
+  @MinLength(10)
+  password: string;
+}
+
+import { IsEmail, MinLength } from 'class-validator';
+
+export class SignInDto {
+  @IsEmail()
+  email: string;
+
+  @MinLength(10)
+  password: string;
+}
+```
+
+# inject user repo to auth serv
+
+when u wanna use someone else repo just inject repo immediately in mod
+
+```javascript
+import { Module } from '@nestjs/common';
+import { HashingService } from './hashing/hashing.service';
+import { AuthenticationController } from './authentication/authentication.controller';
+import { AuthenticationService } from './authentication/authentication.service';
+import { User } from 'src/users/entities/user.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  providers: [HashingService, AuthenticationService],
+  controllers: [AuthenticationController],
+})
+export class IamModule {}
+```
+
+```javascript
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { HashingService } from '../hashing/hashing.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignUpDto } from './dto/sign-up.dto';
+
+@Injectable()
+export class AuthenticationService {
+  constructor(
+    @InjectRepository(User) private readonly usersRepository: Repository<User>,
+    private readonly hashingService: HashingService,
+  ) {}
+
+  async signUp(signUpDto: SignUpDto) {
+    const user = new User();
+    user.email = signUpDto.email;
+    user.password = await this.hashingService.hash(signUpDto.password);
+
+    await this.usersRepository.save(user);
+  }
+
+  async signIn(signInDto: SignInDto) {
+    const user = await this.usersRepository.findOneBy({
+      email: signInDto.email,
+    });
+    if (!user) {
+      throw new UnauthorizedException('User does not exists');
+    }
+    const isEqual = await this.hashingService.compare(
+      signInDto.password,
+      user.password,
+    );
+    if (!isEqual) {
+      throw new UnauthorizedException('Password does not match');
+    }
+    // TODO: We'll fill this gap in the next lesson
+    return true;
+  }
+}
+```
+
+# update auth cont
+
+```javascript
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { AuthenticationService } from './authentication.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignUpDto } from './dto/sign-up.dto';
+
+@Controller('authentication')
+export class AuthenticationController {
+  constructor(private readonly authService: AuthenticationService) {}
+
+  @Post('sign-up')
+  signUp(@Body() signUpDto: SignUpDto) {
+    return this.authService.signUp(signUpDto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('sign-in')
+  signIn(@Body() signInDto: SignInDto) {
+    return this.authService.signIn(signInDto);
+  }
+}
+```
+
+# remove all spec file, i do not want to test
+
+```javascript
+find . -type f -name "*.spec.ts" -delete
+```
