@@ -46,9 +46,9 @@ export default class WaffleSeeder implements Seeder {
     console.log('1 factory-generated waffle saved.');
 
     // Save 5 factory-generated waffles to the database
-    console.log('Saving 5 factory-generated waffles...');
-    await waffleFactory.saveMany(5);
-    console.log('5 factory-generated waffles saved.');
+    console.log('Saving 30 factory-generated waffles...');
+    await waffleFactory.saveMany(30);
+    console.log('30 factory-generated waffles saved.');
 
     console.log('Waffle seeding completed.');
   }

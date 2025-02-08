@@ -694,3 +694,205 @@ void (async () => {
 ```bash
 npm run seed:run
 ```
+
+# register waffle entity to parent domain
+
+```javascript
+import { Module } from '@nestjs/common';
+import { WafflesService } from './waffles.service';
+import { WafflesController } from './waffles.controller';
+import { Waffle } from './entities/waffle.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Waffle])],
+  controllers: [WafflesController],
+  providers: [WafflesService],
+})
+export class WafflesModule {}
+```
+
+# use waffle entity in serv
+
+```javascript
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Waffle } from './entities/waffle.entity';
+import { Repository } from 'typeorm';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto/pagination-query.dto';
+
+@Injectable()
+export class WafflesService {
+  constructor(
+    @InjectRepository(Waffle)
+    private readonly waffleRepository: Repository<Waffle>,
+  ) {}
+  create(createWaffleDto: CreateWaffleDto) {
+    const waffle = this.waffleRepository.create(createWaffleDto);
+    return this.waffleRepository.save(waffle);
+  }
+
+  findAll(paginationQuery: PaginationQueryDto) {
+    const { limit, offset } = paginationQuery;
+    return this.waffleRepository.find({
+      skip: offset,
+      take: limit,
+    });
+  }
+
+  async findOne(id: string) {
+    const waffle = await this.waffleRepository.findOne({ where: { id: +id } });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return waffle;
+  }
+
+  async update(id: string, updateWaffleDto: UpdateWaffleDto) {
+    const waffle = await this.waffleRepository.preload({
+      id: +id,
+      ...updateWaffleDto,
+    });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return this.waffleRepository.save(waffle);
+  }
+
+  async remove(id: string) {
+    const waffle = await this.findOne(id);
+    return this.waffleRepository.remove(waffle);
+  }
+}
+```
+
+# make common dto pagination
+
+```bash
+# flat flag, if not it makes the file in a dir with that file name
+nest g class common/dto/pagination-query.dto --no-spec --flat
+```
+
+```javascript
+import { Type } from 'class-transformer';
+import { IsOptional, IsPositive } from 'class-validator';
+
+export class PaginationQueryDto {
+  @Type(() => Number) // dto outside body need explicit transform
+  @IsOptional()
+  @IsPositive()
+  limit: number;
+
+  @Type(() => Number)
+  @IsOptional()
+  @IsPositive()
+  offset: number;
+}
+```
+
+# use in cont
+
+```javascript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
+import { WafflesService } from './waffles.service';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto/pagination-query.dto';
+
+@Controller('waffles')
+export class WafflesController {
+  constructor(private readonly wafflesService: WafflesService) {}
+
+  @Post()
+  create(@Body() createWaffleDto: CreateWaffleDto) {
+    return this.wafflesService.create(createWaffleDto);
+  }
+
+  @Get()
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.wafflesService.findAll(paginationQuery);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.wafflesService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateWaffleDto: UpdateWaffleDto) {
+    return this.wafflesService.update(id, updateWaffleDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.wafflesService.remove(id);
+  }
+}
+```
+
+# use in serv
+
+```javascript
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Waffle } from './entities/waffle.entity';
+import { Repository } from 'typeorm';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto/pagination-query.dto';
+
+@Injectable()
+export class WafflesService {
+  constructor(
+    @InjectRepository(Waffle)
+    private readonly waffleRepository: Repository<Waffle>,
+  ) {}
+  create(createWaffleDto: CreateWaffleDto) {
+    const waffle = this.waffleRepository.create(createWaffleDto);
+    return this.waffleRepository.save(waffle);
+  }
+
+  findAll(paginationQuery: PaginationQueryDto) {
+    const { limit, offset } = paginationQuery;
+    return this.waffleRepository.find({
+      skip: offset,
+      take: limit,
+    });
+  }
+
+  async findOne(id: string) {
+    const waffle = await this.waffleRepository.findOne({ where: { id: +id } });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return waffle;
+  }
+
+  async update(id: string, updateWaffleDto: UpdateWaffleDto) {
+    const waffle = await this.waffleRepository.preload({
+      id: +id,
+      ...updateWaffleDto,
+    });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return this.waffleRepository.save(waffle);
+  }
+
+  async remove(id: string) {
+    const waffle = await this.findOne(id);
+    return this.waffleRepository.remove(waffle);
+  }
+}
+```

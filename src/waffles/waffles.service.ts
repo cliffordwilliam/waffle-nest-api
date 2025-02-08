@@ -1,26 +1,51 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateWaffleDto } from './dto/create-waffle.dto';
 import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Waffle } from './entities/waffle.entity';
+import { Repository } from 'typeorm';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
 @Injectable()
 export class WafflesService {
+  constructor(
+    @InjectRepository(Waffle)
+    private readonly waffleRepository: Repository<Waffle>,
+  ) {}
   create(createWaffleDto: CreateWaffleDto) {
-    return `This action adds a new waffle ${JSON.stringify(createWaffleDto)}`;
+    const waffle = this.waffleRepository.create(createWaffleDto);
+    return this.waffleRepository.save(waffle);
   }
 
-  findAll() {
-    return `This action returns all waffles`;
+  findAll(paginationQuery: PaginationQueryDto) {
+    const { limit, offset } = paginationQuery;
+    return this.waffleRepository.find({
+      skip: offset,
+      take: limit,
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} waffle`;
+  async findOne(id: string) {
+    const waffle = await this.waffleRepository.findOne({ where: { id: +id } });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return waffle;
   }
 
-  update(id: number, updateWaffleDto: UpdateWaffleDto) {
-    return `This action updates a #${id} waffle ${JSON.stringify(updateWaffleDto)}`;
+  async update(id: string, updateWaffleDto: UpdateWaffleDto) {
+    const waffle = await this.waffleRepository.preload({
+      id: +id,
+      ...updateWaffleDto,
+    });
+    if (!waffle) {
+      throw new NotFoundException(`Waffle #${id} not found`);
+    }
+    return this.waffleRepository.save(waffle);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} waffle`;
+  async remove(id: string) {
+    const waffle = await this.findOne(id);
+    return this.waffleRepository.remove(waffle);
   }
 }
