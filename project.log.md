@@ -483,16 +483,14 @@ export default registerAs(
 
 ```javascript
 import { databaseConfig } from 'src/config/database.config';
-import { CreateWaffleTable1738959238260 } from 'src/migrations/1738959238260-CreateWaffleTable';
-import { Waffle } from 'src/waffles/entities/waffle.entity';
 import { DataSource, DataSourceOptions } from 'typeorm';
 
 export default new DataSource({
   ...databaseConfig,
-  entities: [Waffle],
-  migrations: [CreateWaffleTable1738959238260],
   logging: true, // Enable logging
   logger: 'advanced-console', // Advanced console logger (logs to console)
+  entities: [__dirname + '/src/**/*.entity{.js,.ts}'],
+  migrations: [__dirname + '/src/migrations/*{.js,.ts}'],
 } as DataSourceOptions);
 ```
 
@@ -525,7 +523,7 @@ export class Waffle {
 ```bash
 # build first, so it can compare local vs db
 npm run build
-npx typeorm migration:generate src/migrations/AddStockQuantityColumn -d dist/typeorm-cli.config
+npx typeorm migration:generate src/migrations/AddCreatedAtToWaffle -d dist/typeorm-cli.config
 
 # open and save that file so it lint and format, when you commit sometimes it does not do it so just do it manually
 ```
@@ -538,11 +536,23 @@ npm run build
 npx typeorm migration:run -d dist/typeorm-cli.config
 ```
 
-# add run new migrations script (edit railway pre deploy cmd in gui whenever u wanna run migration, that runs after build but before deploy)
+# add run new migrations script (e.g. npm run migrate:run)
 
 ```json
-"migrate:run": "npm run build && npx typeorm migration:run -d dist/typeorm-cli.config"
+// run new migrations
+"migrate:run": "npm run build && npx typeorm migration:run -d dist/typeorm-cli.config",
+
+// add revert in case you want to undo latest one
+"migrate:revert": "npm run build && npx typeorm migration:revert -d dist/typeorm-cli.config"
 ```
+
+# edit railway pre deploy cmd in gui, this will run migration above after build is done, but before running the app (before deployment)
+
+```bash
+npm run migrate:run
+```
+
+# can also remove it from gui when u do not need migration on every app build
 
 # add repl in src/repl.ts
 
