@@ -559,6 +559,16 @@ npm run migrate:run
 npm run migrate:revert
 ```
 
+# migrate
+
+```bash
+npm run migration:generate --name=AddRole
+npm run migrate:run
+git add .
+git commit
+git push
+```
+
 # edit railway pre deploy cmd in gui, this will run migration above after build is done, but before running the app (before deployment)
 
 you can only talk to private ipv6 network db only after build, so pre deploy is how railway recommend you to migrate and seed
@@ -2176,3 +2186,140 @@ export class AuthenticationService {
 # update redis env for the web server service in railway gui first
 
 # then push this new commit with the redis on app ready connection
+
+# add user role and migrate
+
+# add user role enum
+
+```javascript
+export enum Role {
+  Regular = 'regular',
+  Admin = 'admin',
+}
+// src/users/enums/role.enum.ts
+```
+
+# add repl
+
+```javascript
+import { repl } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  await repl(AppModule);
+}
+void bootstrap();
+```
+
+# use repl to add role value
+
+```bash
+npm run start -- --entryFile repl
+
+await get('UserRepository').update({ id: 1 }, { role: 'regular' });
+await get("UserRepository").find()
+
+# ctrl + c twice to exit
+```
+
+# create new dir iam/authorization/decorators/role.decorator.ts
+
+```javascript
+import { SetMetadata } from '@nestjs/common';
+import { Role } from '../../../users/enums/role.enum';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
+
+```
+
+# make new role guard
+
+```bash
+nest g guard iam/authorization/guards/roles --no-spec --flat --no-spec
+```
+
+```javascript
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Role } from 'src/users/enums/role.enum';
+import { ROLES_KEY } from '../decorators/role.decorator';
+import { ActiveUserData } from 'src/iam/interfaces/active-user-data.interface';
+import { REQUEST_USER_KEY } from 'src/iam/iam.constants';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) {
+      return true;
+    }
+    const request: Request = context.switchToHttp().getRequest();
+    const user = request[REQUEST_USER_KEY] as ActiveUserData | undefined;
+    return requiredRoles.some((role) => user?.role === role);
+  }
+}
+
+```
+
+# use guard
+
+```javascript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
+import { WafflesService } from './waffles.service';
+import { CreateWaffleDto } from './dto/create-waffle.dto';
+import { UpdateWaffleDto } from './dto/update-waffle.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ApiNotFoundResponse, ApiTags } from '@nestjs/swagger';
+import { Roles } from 'src/iam/authorization/decorators/role.decorator';
+import { Role } from 'src/users/enums/role.enum';
+
+@ApiTags('waffles')
+@Controller('waffles')
+export class WafflesController {
+  constructor(private readonly wafflesService: WafflesService) {}
+
+  @Roles(Role.Admin)
+  @Post()
+  create(@Body() createWaffleDto: CreateWaffleDto) {
+    return this.wafflesService.create(createWaffleDto);
+  }
+
+  @Get()
+  findAll(@Query() paginationQuery: PaginationQueryDto) {
+    return this.wafflesService.findAll(paginationQuery);
+  }
+
+  @ApiNotFoundResponse({ description: 'Not found.' })
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.wafflesService.findOne(id);
+  }
+
+  @Roles(Role.Admin)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateWaffleDto: UpdateWaffleDto) {
+    return this.wafflesService.update(id, updateWaffleDto);
+  }
+
+  @Roles(Role.Admin)
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.wafflesService.remove(id);
+  }
+}
+```

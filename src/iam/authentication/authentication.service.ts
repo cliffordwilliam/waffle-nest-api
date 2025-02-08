@@ -70,6 +70,7 @@ export class AuthenticationService {
         {
           sub: user.id,
           email: user.email,
+          role: user.role,
         } as ActiveUserData,
         JWT_ACCESS_TOKEN_TTL,
       ),
