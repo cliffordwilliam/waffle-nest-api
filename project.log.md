@@ -537,35 +537,30 @@ export class Waffle {
 }
 ```
 
-# local entity vs db, got diff? makes one migration file
-
-```bash
-# build first, so it can compare local vs db
-npm run build
-npx typeorm migration:generate src/migrations/AddCreatedAtToWaffle -d dist/typeorm-cli.config
-
-# open and save that file so it lint and format, when you commit sometimes it does not do it so just do it manually
-```
-
-# run new migration files
-
-```bash
-# build first, so it can run new ones (so in prod, no need to build just run the migration)
-npm run build
-npx typeorm migration:run -d dist/typeorm-cli.config
-```
-
-# add run new migrations script (e.g. npm run migrate:run)
+# add run migrations script
 
 ```json
-// run new migrations
+// local entity vs db, got diff? makes one migration file, build first, so it can compare local vs db
+"migration:generate": "npm run build && npx typeorm migration:generate src/migrations/$npm_config_name -d dist/typeorm-cli.config",
+
+// run new migration files, build first, so it can run new ones (so in prod, no need to build just run the migration)
 "migrate:run": "npm run build && npx typeorm migration:run -d dist/typeorm-cli.config",
 
 // add revert in case you want to undo latest one
 "migrate:revert": "npm run build && npx typeorm migration:revert -d dist/typeorm-cli.config"
 ```
 
+# shortcut migration copy paste commands
+
+```bash
+npm run migration:generate --name=WriteYourMigrationNameHere
+npm run migrate:run
+npm run migrate:revert
+```
+
 # edit railway pre deploy cmd in gui, this will run migration above after build is done, but before running the app (before deployment)
+
+you can only talk to private ipv6 network db only after build, so pre deploy is how railway recommend you to migrate and seed
 
 ```bash
 npm run migrate:run

@@ -25,6 +25,9 @@ export class Waffle {
   @Column({ type: 'int', default: 0 })
   stockQuantity: number;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  flavor?: string;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 }
