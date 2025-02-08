@@ -24,4 +24,13 @@ export class CreateWaffleDto {
   @IsBoolean()
   @IsOptional()
   readonly isGlutenFree?: boolean;
+
+  @IsNumber()
+  @Min(0)
+  readonly stockQuantity: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  readonly flavor?: string;
 }

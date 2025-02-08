@@ -568,14 +568,129 @@ npm run migrate:run
 
 # can also remove it from gui when u do not need migration on every app build
 
-# add repl in src/repl.ts
+# do not forget to update dto also
+
+# add seed dep
+
+```bash
+npm install typeorm-extension --save
+```
+
+# make waffle factory
 
 ```javascript
-import { repl } from '@nestjs/core';
-import { AppModule } from './app.module';
+// src/waffle/waffle.factory.ts
+import { setSeederFactory } from 'typeorm-extension';
+import { Waffle } from './entities/waffle.entity';
 
-async function bootstrap() {
-  await repl(AppModule);
+export default setSeederFactory(Waffle, (faker) => {
+  const waffle = new Waffle();
+
+  waffle.name = faker.lorem.words(3); // Generate a name with 3 random words
+  waffle.description = faker.lorem.sentence(); // Generate a random description
+  waffle.price = parseFloat(faker.commerce.price({ min: 1, max: 10, dec: 2 })); // Random price between 1 and 10
+  waffle.isGlutenFree = faker.datatype.boolean(); // Random boolean for isGlutenFree
+  waffle.stockQuantity = faker.number.int({ min: 0, max: 100 }); // Random stock quantity between 0 and 100
+  waffle.flavor = faker.lorem.word(); // Random flavor
+
+  return waffle;
+});
+```
+
+# make waffle seeder
+
+```javascript
+// src/waffle/waffle.seeder.ts
+import { Seeder, SeederFactoryManager } from 'typeorm-extension';
+import { DataSource } from 'typeorm';
+import { Waffle } from './entities/waffle.entity';
+
+export default class WaffleSeeder implements Seeder {
+  public async run(
+    dataSource: DataSource,
+    factoryManager: SeederFactoryManager,
+  ): Promise<void> {
+    console.log('Starting Waffle Seeder...');
+
+    // Truncate existing waffle data
+    console.log('Truncating existing waffles...');
+    await dataSource.query('TRUNCATE "waffle" RESTART IDENTITY;'); // Clear existing waffles
+    console.log('Waffle table truncated.');
+
+    const repository = dataSource.getRepository(Waffle);
+
+    // Insert specific waffle data
+    console.log('Inserting specific waffle data...');
+    await repository.insert([
+      {
+        name: 'Classic Waffle',
+        description: 'A classic waffle with maple syrup and butter.',
+        price: 5.99,
+        isGlutenFree: false,
+        stockQuantity: 20,
+        flavor: 'Vanilla',
+      },
+      {
+        name: 'Choco Delight Waffle',
+        description: 'Waffle topped with chocolate sauce and whipped cream.',
+        price: 7.49,
+        isGlutenFree: true,
+        stockQuantity: 30,
+        flavor: 'Chocolate',
+      },
+    ]);
+    console.log('Specific waffle data inserted.');
+
+    const waffleFactory = factoryManager.get(Waffle);
+
+    // Save 1 factory-generated waffle to the database
+    console.log('Saving 1 factory-generated waffle...');
+    await waffleFactory.save();
+    console.log('1 factory-generated waffle saved.');
+
+    // Save 5 factory-generated waffles to the database
+    console.log('Saving 5 factory-generated waffles...');
+    await waffleFactory.saveMany(5);
+    console.log('5 factory-generated waffles saved.');
+
+    console.log('Waffle seeding completed.');
+  }
 }
-void bootstrap();
+```
+
+# make seed ifee
+
+```javascript
+import { databaseConfig } from './src/config/database.config'; // must rel import outside nest
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { runSeeders, SeederOptions } from 'typeorm-extension';
+
+const isCompiled = __dirname.includes('/dist'); // Check if running from dist/
+const fileExt = isCompiled ? 'js' : 'ts'; // Use .js in production, .ts in dev
+const baseDir = isCompiled ? __dirname : __dirname + '/../src';
+
+// cli does not work so use ifee
+void (async () => {
+  const dataSource = new DataSource({
+    ...databaseConfig,
+    // idk why but this does not work 'autoLoadEntities'
+    entities: [`${baseDir}/**/*.entity.${fileExt}`],
+    seeds: [`${baseDir}/**/*.seeder.${fileExt}`], // Use the correct format
+    factories: [`${baseDir}/**/*.factory.${fileExt}`],
+  } as DataSourceOptions & SeederOptions);
+  await dataSource.initialize();
+  void runSeeders(dataSource);
+})();
+```
+
+# add seed script, run the dist js one
+
+```json
+"seed:run": "npm run build && node dist/data-source.seed"
+```
+
+# shortcut to seed - add this to railway one time to trigger seed explicitly, same like migration, remove when you are done so u dont keep seeding each push
+
+```bash
+npm run seed:run
 ```

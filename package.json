@@ -21,7 +21,8 @@
     "prepare": "husky",
     "migration:generate": "npm run build && npx typeorm migration:generate src/migrations/$npm_config_name -d dist/typeorm-cli.config",
     "migrate:run": "npm run build && npx typeorm migration:run -d dist/typeorm-cli.config",
-    "migrate:revert": "npm run build && npx typeorm migration:revert -d dist/typeorm-cli.config"
+    "migrate:revert": "npm run build && npx typeorm migration:revert -d dist/typeorm-cli.config",
+    "seed:run": "npm run build && node dist/data-source.seed"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -37,7 +38,8 @@
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "typeorm-extension": "^3.6.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
