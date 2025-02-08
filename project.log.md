@@ -1,19 +1,20 @@
 # why use nest
 
-```
+`` --no-spec`
 enterprise grade
 focus on app, not config
-```
 
-# get node lts, nest cli globally, make nest app
+````
+
+# get node lts, nest cli globally, make nest app --no-spec
 
 ```bash
 nvm install --lts
 nvm use --lts
 node -v
 npm i -g @nestjs/cli
-nest new
-```
+nest ne --no-specw --no-spec
+````
 
 # get vs code (say yes to adding the Microsoft repository and signing key)
 
@@ -117,9 +118,9 @@ npm run start:dev
 
 # add rate limiter
 
-```bash
+````bash
 npm i --save @nestjs/throttler
-```
+`` --no-spec`
 
 # init the rate limiter module
 
@@ -135,12 +136,12 @@ npm i --save @nestjs/throttler
   ],
 })
 export class AppModule {}
-```
+````
 
 # create waffle resource
 
 ```bash
-nest g resource
+nest g resource --no-spec
 ```
 
 # bind global pipe in entry file to validate dto and transform
@@ -1117,7 +1118,7 @@ export class WafflesController {
 # create users res
 
 ```bash
-nest g res users
+nest g res users --no-spec
 ```
 
 # edit user serv to prevent eslint err
@@ -1204,8 +1205,8 @@ npm install --save @types/bcryptjs -D
 # make iam mod
 
 ```bash
-nest g module iam
-nest g service iam/hashing
+nest g module iam --no-spec
+nest g service iam/hashing --no-spec
 ```
 
 # make hash serv
@@ -1230,15 +1231,15 @@ export class HashingService {
 # make auth cont serv for iam domain
 
 ```bash
-nest g controller iam/authentication
-nest g service iam/authentication
+nest g controller iam/authentication --no-spec
+nest g service iam/authentication --no-spec
 ```
 
 # make sign in and up dto
 
 ```bash
-nest g class iam/authentication/dto/sign-in.dto --flat
-nest g class iam/authentication/dto/sign-up.dto --flat
+nest g class iam/authentication/dto/sign-in.dto --flat --no-spec
+nest g class iam/authentication/dto/sign-up.dto --flat --no-spec
 ```
 
 ```javascript
@@ -1356,4 +1357,268 @@ export class AuthenticationController {
 
 ```javascript
 find . -type f -name "*.spec.ts" -delete
+```
+
+# change railway jwt issuer env to its private domain
+
+```
+JWT_TOKEN_AUDIENCE=https://frontend1.com,https://frontend2.com
+JWT_TOKEN_ISSUER="asd-asd-asd.railway.internal"
+```
+
+# get jwt dep
+
+```bash
+npm i @nestjs/jwt --no-spec
+```
+
+# create config dir in iam, make jwt.config.ts
+
+```javascript
+import { registerAs } from '@nestjs/config';
+
+export default registerAs('jwt', () => {
+  // Ensure essential variables are set, otherwise throw an error
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is missing');
+  }
+
+  const audience = process.env.JWT_TOKEN_AUDIENCE;
+  if (!audience) {
+    throw new Error('JWT_TOKEN_AUDIENCE environment variable is missing');
+  }
+
+  const issuer = process.env.JWT_TOKEN_ISSUER;
+  if (!issuer) {
+    throw new Error('JWT_TOKEN_ISSUER environment variable is missing');
+  }
+
+  const accessTokenTtl = Number(process.env.JWT_ACCESS_TOKEN_TTL) || 3600; // Default to 3600 seconds (1 hour)
+
+  return {
+    secret,
+    audience,
+    issuer,
+    accessTokenTtl,
+  };
+});
+```
+
+# register jwt mod to iam mod, also get user repo and jwt config to inject in iam mod members
+
+```javascript
+import { Module } from '@nestjs/common';
+import { HashingService } from './hashing/hashing.service';
+import { AuthenticationController } from './authentication/authentication.controller';
+import { AuthenticationService } from './authentication/authentication.service';
+import { User } from 'src/users/entities/user.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import jwtConfig from './config/jwt.config';
+import { ConfigModule } from '@nestjs/config';
+
+@Module({
+  imports: [
+    JwtModule.registerAsync(jwtConfig.asProvider()),
+    TypeOrmModule.forFeature([User]),
+    ConfigModule.forFeature(jwtConfig),
+  ],
+  providers: [HashingService, AuthenticationService],
+  controllers: [AuthenticationController],
+})
+export class IamModule {}
+```
+
+# give token on ok sign in
+
+```javascript
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+import { HashingService } from '../hashing/hashing.service';
+import { SignInDto } from './dto/sign-in.dto';
+import { SignUpDto } from './dto/sign-up.dto';
+import { JwtService } from '@nestjs/jwt';
+import jwtConfig from '../config/jwt.config';
+import { ConfigType } from '@nestjs/config';
+
+@Injectable()
+export class AuthenticationService {
+  constructor(
+    @InjectRepository(User) private readonly usersRepository: Repository<User>,
+    private readonly hashingService: HashingService,
+    private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+  ) {}
+
+  async signUp(signUpDto: SignUpDto) {
+    const existingUser = await this.usersRepository.findOneBy({
+      email: signUpDto.email,
+    });
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+    const user = new User();
+    user.email = signUpDto.email;
+    user.password = await this.hashingService.hash(signUpDto.password);
+
+    await this.usersRepository.save(user);
+  }
+
+  async signIn(signInDto: SignInDto) {
+    const user = await this.usersRepository.findOneBy({
+      email: signInDto.email,
+    });
+    if (!user) {
+      throw new UnauthorizedException('User does not exists');
+    }
+    const isEqual = await this.hashingService.compare(
+      signInDto.password,
+      user.password,
+    );
+    if (!isEqual) {
+      throw new UnauthorizedException('Password does not match');
+    }
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+      },
+      {
+        audience: this.jwtConfiguration.audience,
+        issuer: this.jwtConfiguration.issuer,
+        secret: this.jwtConfiguration.secret,
+        expiresIn: this.jwtConfiguration.accessTokenTtl,
+      },
+    );
+    return {
+      accessToken,
+    };
+  }
+}
+```
+
+# make payload interface
+
+```javascript
+// src/iam/interfaces/active-user-data.interface.ts
+export interface ActiveUserData {
+  sub: number; // user ID
+  email: string;
+}
+```
+
+# make const
+
+```javascript
+// src/iam/iam.constants.ts
+export const REQUEST_USER_KEY = 'user';
+```
+
+# make auth guard, no token no access
+
+```bash
+nest g guard iam/authentication/guards/access-token --no-spec --flat --no-spec
+```
+
+```javascript
+// src/iam/authentication/guards/access-token.guard.ts
+import {
+  CanActivate,
+  ExecutionContext,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
+import jwtConfig from 'src/iam/config/jwt.config';
+import { REQUEST_USER_KEY } from 'src/iam/iam.constants';
+import { ActiveUserData } from 'src/iam/interfaces/active-user-data.interface';
+
+@Injectable()
+export class AccessTokenGuard implements CanActivate {
+  constructor(
+    private readonly jwtService: JwtService,
+    @Inject(jwtConfig.KEY)
+    private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request: Request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+    if (!token) {
+      throw new UnauthorizedException();
+    }
+    try {
+      const payload: ActiveUserData = await this.jwtService.verifyAsync(
+        token,
+        this.jwtConfiguration,
+      );
+      request[REQUEST_USER_KEY] = payload;
+    } catch {
+      throw new UnauthorizedException();
+    }
+    return true;
+  }
+
+  private extractTokenFromHeader(request: Request): string | null {
+    const authHeader = request.headers['authorization'];
+
+    if (!authHeader) {
+      return null;
+    }
+
+    const [scheme, token] = authHeader.split(' ');
+
+    if (scheme !== 'Bearer' || !token) {
+      return null;
+    }
+
+    return token;
+  }
+}
+```
+
+# register guard global in iam mod
+
+```javascript
+import { Module } from '@nestjs/common';
+import { HashingService } from './hashing/hashing.service';
+import { AuthenticationController } from './authentication/authentication.controller';
+import { AuthenticationService } from './authentication/authentication.service';
+import { User } from 'src/users/entities/user.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import jwtConfig from './config/jwt.config';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { AccessTokenGuard } from './authentication/guards/access-token.guard';
+
+@Module({
+  imports: [
+    JwtModule.registerAsync(jwtConfig.asProvider()),
+    TypeOrmModule.forFeature([User]),
+    ConfigModule.forFeature(jwtConfig),
+  ],
+  providers: [
+    HashingService,
+    AuthenticationService,
+    {
+      provide: APP_GUARD,
+      useClass: AccessTokenGuard,
+    },
+  ],
+  controllers: [AuthenticationController],
+})
+export class IamModule {}
 ```
