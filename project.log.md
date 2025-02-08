@@ -1113,3 +1113,83 @@ export class WafflesController {
   }
 }
 ```
+
+# create users res
+
+```bash
+nest g res users
+```
+
+# edit user serv to prevent eslint err
+
+```javascript
+import { Injectable } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+
+@Injectable()
+export class UsersService {
+  create(createUserDto: CreateUserDto) {
+    return createUserDto;
+  }
+
+  findAll() {
+    return `This action returns all users`;
+  }
+
+  findOne(id: number) {
+    return `This action returns a #${id} user`;
+  }
+
+  update(id: number, updateUserDto: UpdateUserDto) {
+    return updateUserDto;
+  }
+
+  remove(id: number) {
+    return `This action removes a #${id} user`;
+  }
+}
+```
+
+# make user entity and register to parent module (so typeorm knows this exists & make auto repo)
+
+```javascript
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
+@Entity()
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column()
+  password: string;
+}
+```
+
+```javascript
+import { Module } from '@nestjs/common';
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+import { User } from './entities/user.entity';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  controllers: [UsersController],
+  providers: [UsersService],
+})
+export class UsersModule {}
+```
+
+# create migration file and run migration (make sure remote railway also does it, it should have it in pre deploy script)
+
+```bash
+npm run migration:generate --name=AddUser
+npm run migrate:run
+git add .
+git commit -m "feat: add user"
+git push
+```

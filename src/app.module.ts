@@ -8,21 +8,30 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { envValidationSchema } from './config/env.validation';
 import { WafflesModule } from './waffles/waffles.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    // Init orm Typeorm module
     TypeOrmModule.forRootAsync(databaseConfig.asProvider()),
+
+    // Init nest config module to deal with env
     ConfigModule.forRoot({
       validationSchema: envValidationSchema,
       load: [appConfig, databaseConfig],
     }),
+
+    // Init rate limit module
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
         limit: 10,
       },
     ]),
+
+    // All app sub modules
     WafflesModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
