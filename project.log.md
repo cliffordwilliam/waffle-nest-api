@@ -680,7 +680,7 @@ const isCompiled = __dirname.includes('/dist'); // Check if running from dist/
 const fileExt = isCompiled ? 'js' : 'ts'; // Use .js in production, .ts in dev
 const baseDir = isCompiled ? __dirname : __dirname + '/../src';
 
-// cli does not work so use ifee
+// cli does not work so use iife
 void (async () => {
   const dataSource = new DataSource({
     ...databaseConfig,
@@ -2322,4 +2322,102 @@ export class WafflesController {
     return this.wafflesService.remove(id);
   }
 }
+```
+
+# in case u want docker, create yaml
+
+```yaml
+# docker-compose.yml
+version: '3'
+services:
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_PASSWORD: pass123
+
+  redis:
+    image: redis
+    restart: always
+    ports:
+      - '6379:6379'
+```
+
+# make sure to use POSTGRES_PASSWORD: pass123 in ur env when connecting to it then
+
+```
+DATABASE_HOST="localhost"
+DATABASE_NAME="postgres"
+DATABASE_PASSWORD="pass123"
+DATABASE_PORT="5432"
+DATABASE_TYPE="postgres"
+DATABASE_USER="postgres"
+
+REDIS_HOST="localhost"
+REDIS_PASSWORD="redispass"
+REDIS_PORT="6379"
+```
+
+# install docker desktop, its super easy on windows
+
+install docker from here
+
+https://docs.docker.com/desktop/setup/install/windows-install/
+
+restart comp
+
+had a bios update
+
+then docker comes up
+
+had to accept agreement
+
+Docker Subscription Service Agreement
+By selecting accept, you agree to the Subscription Service Agreement⁠, the Docker Data Processing Agreement⁠, and the Data Privacy Policy⁠.
+
+Commercial use of Docker Desktop at a company of more than 250 employees OR more than $10 million in annual revenue requires a paid subscription (Pro, Team, or Business). See subscription details⁠
+
+then use the recommended settings
+
+then had to allow it made changes to machine
+
+and sign in with github
+
+# then leave it on, and run this in any terminal (make sure in popup let it be in private network only, its in firewall advanced popup accordion)
+
+# Start containers in bg mode
+
+```bash
+docker-compose up -d
+```
+
+# Stop containers
+
+```bash
+docker-compose up -d
+```
+
+# can install the docker vs code extension too to see containers
+
+# git cloning this from another machine and npm i gives me warnings with nest jest
+
+```bash
+$ npm i
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+```
+
+# do not forget to migrate / seed that docker container postgre
+
+```bash
+npm run migration:generate --name=WriteYourMigrationNameHere
+npm run migrate:run
+npm run migrate:revert
+
+npm run seed:run
 ```

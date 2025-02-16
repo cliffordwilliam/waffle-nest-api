@@ -2,7 +2,7 @@ import { databaseConfig } from './src/config/database.config'; // must rel impor
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { runSeeders, SeederOptions } from 'typeorm-extension';
 
-const isCompiled = __dirname.includes('/dist'); // Check if running from dist/
+const isCompiled = __dirname.includes('dist'); // Check if running from dist (not /dist since windows does \dist, so just dist)
 const fileExt = isCompiled ? 'js' : 'ts'; // Use .js in production, .ts in dev
 const baseDir = isCompiled ? __dirname : __dirname + '/../src';
 
