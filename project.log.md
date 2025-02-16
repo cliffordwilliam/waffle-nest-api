@@ -2421,3 +2421,27 @@ npm run migrate:revert
 
 npm run seed:run
 ```
+
+# window line ending diff (ori proj in linux, u commit and push in windows)
+
+Run the following command to set Git to automatically normalize line endings
+
+```bash
+git config --global core.autocrlf true
+
+```
+
+After setting the config, you need to normalize the files
+
+```bash
+git rm --cached -r .
+git reset --hard
+```
+
+# enforce consistent line endings in all os, make this in root .gitattributes in repo
+
+This ensures that Git handles line endings correctly based on the OS
+
+```
+* text=auto
+```
