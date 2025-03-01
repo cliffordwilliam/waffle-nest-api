@@ -1,10 +1,10 @@
 # why use nest
 
-`` --no-spec`
+```
 enterprise grade
 focus on app, not config
 
-````
+```
 
 # get node lts, nest cli globally, make nest app --no-spec
 
@@ -14,7 +14,7 @@ nvm use --lts
 node -v
 npm i -g @nestjs/cli
 nest ne --no-specw --no-spec
-````
+```
 
 # get vs code (say yes to adding the Microsoft repository and signing key)
 
@@ -120,7 +120,7 @@ npm run start:dev
 
 ````bash
 npm i --save @nestjs/throttler
-`` --no-spec`
+```
 
 # init the rate limiter module
 
